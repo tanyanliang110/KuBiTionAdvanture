@@ -1317,9 +1317,22 @@ var StudioComponent = React.createClass({
             makeAmountMax:this.context.getMaxTimeOfRequire(require)
         });
     },
+    getMaxMakeAmount:function(){
+        var name = this.state.itemToMake;
+        if(!name) return 1;
+        var data = this.props.attachData[name];
+        var max = Math.floor(this.context.getTheMaxTimeToUse() / this.getTimeNeed(data.timeNeed) || 1);
+        var require = data.require;
+        var availableThings = together(this.context.boxSaveData.bag.things, this.context.boxSaveData.bigBox.things);
+        for(var attr in require){
+            var available = availableThings[attr] || 0;
+            max = Math.min(max, Math.floor(available / require[attr]));
+        }
+        return Math.max(1, max);
+    },
     updateSchedule:function(sender){
         // var obj = sender.nativeEvent.srcElement ? sender.nativeEvent.srcElement : sender.nativeEvent.target;
-        var value =  parseInt($('.scheduleInput')[0].value) ;
+        var value =  parseInt(readInputValue(sender, $('.scheduleInput')[0].value));
         // var value =  parseInt(obj.value);
         if(isNaN(value))value = 1;
         if(value > this.state.makeAmountMax)value = this.state.makeAmountMax;
@@ -1438,7 +1451,11 @@ var StudioComponent = React.createClass({
                                             <tr>
                                                 <td>{ITEM_DATA[cookResult].name}</td>
                                                 <td>{ITEM_DATA[cookResult].desc}</td>
-                                                <td><input className = 'scheduleInput form-control' value = {String(this.state.cookAmount)} type = 'number' onChange = {this.changeCookAmount}/></td>
+                                                <td><div className='scheduleAdjust'>
+                                                    <div className='adjustMinus'><HoldAdjustButton onAdjust={function(){this.changeCookAmount({nativeEvent:{target:{value:this.state.cookAmount-1}}})}.bind(this)}>−</HoldAdjustButton><MinAdjustButton onClick={function(){this.changeCookAmount({nativeEvent:{target:{value:1}}})}.bind(this)} /></div>
+                                                    <input className = 'scheduleInput form-control' value = {String(this.state.cookAmount)} type = 'text' onChange = {this.changeCookAmount}/>
+                                                    <div className='adjustPlus'><HoldAdjustButton onAdjust={function(){this.changeCookAmount({nativeEvent:{target:{value:this.state.cookAmount+1}}})}.bind(this)}>+</HoldAdjustButton><MaxAdjustButton onClick={function(){this.changeCookAmount({nativeEvent:{target:{value:this.checkMaxCookAmount()}}})}.bind(this)} /></div>
+                                                </div></td>
                                                 <td>耗时:{Math.round(this.getCookTime())}</td>
                                                 <td><BtnComponent disabled = {disabled} desc = '烹调' handleClick = {this.handleCook}/></td>
                                             </tr>
@@ -1533,7 +1550,11 @@ var StudioComponent = React.createClass({
                                 <thead><tr><td>清单</td>{this.props.alwayMakeOne?null:<td>个数</td>}<td>消耗</td><td>耗时</td><td></td></tr></thead>
                                 <tbody><tr>
                                     <td>{ITEM_DATA[name].name}</td>
-                                    {this.props.alwayMakeOne?null:<td><input className = 'scheduleInput form-control' value = {String(amount)} type = 'number' onChange = {this.updateSchedule}/></td>}
+                                    {this.props.alwayMakeOne?null:<td><div className='scheduleAdjust'>
+                                        <div className='adjustMinus'><HoldAdjustButton onAdjust={function(){this.updateSchedule({nativeEvent:{target:{value:this.state.makeAmount-1}}})}.bind(this)}>−</HoldAdjustButton><MinAdjustButton onClick={function(){this.updateSchedule({nativeEvent:{target:{value:1}}})}.bind(this)} /></div>
+                                        <input className = 'scheduleInput form-control' value = {String(amount)} type = 'text' onChange = {this.updateSchedule}/>
+                                        <div className='adjustPlus'><HoldAdjustButton onAdjust={function(){this.updateSchedule({nativeEvent:{target:{value:this.state.makeAmount+1}}})}.bind(this)}>+</HoldAdjustButton><MaxAdjustButton onClick={function(){this.updateSchedule({nativeEvent:{target:{value:this.getMaxMakeAmount()}}})}.bind(this)} /></div>
+                                    </div></td>}
                                     <td><RequireComponent haveBox = {true} withSpace = {true} showTotal = {true} requireList = {totalRequire} /></td>
                                     <td>{Math.round(this.getTimeNeed(this.props.attachData[name].timeNeed * amount))}</td>
                                     <td><BtnComponent disabled = {disabled} handleClick = {this.make.bind(this,name)} desc = "执行" /></td>
@@ -1591,6 +1612,24 @@ var BuildingComponent = React.createClass({
             );
     }
 });
+var HoldAdjustButton = React.createClass({
+    componentWillMount:function(){
+        this.adjust = new HoldAdjust(this.props.onAdjust, 400);
+    },
+    componentDidMount:function(){ window.addEventListener('blur', this.stop); },
+    componentWillUnmount:function(){ window.removeEventListener('blur', this.stop); this.adjust.stop(); },
+    start:function(event){ event.preventDefault(); this.adjust.start(); },
+    stop:function(){ this.adjust.stop(); },
+    render:function(){
+        return <button className='btn' onMouseDown={this.start} onMouseUp={this.stop} onMouseLeave={this.stop} onTouchStart={this.start} onTouchEnd={this.stop} onTouchCancel={this.stop}>{this.props.children}</button>;
+    }
+});
+var MaxAdjustButton = React.createClass({
+    render:function(){ return <button className='maxAdjust' onClick={this.props.onClick}>最大</button>; }
+});
+var MinAdjustButton = React.createClass({
+    render:function(){ return <button className='minAdjust' onClick={this.props.onClick}>最小</button>; }
+});
 var ActionComponent = React.createClass({
     contextTypes:{
         getTheMaxTimeToUse  :React.PropTypes.func.isRequired,
@@ -1614,6 +1653,8 @@ var ActionComponent = React.createClass({
             coolDown:null,
             disabled:false,
             props:{},
+            minTime:1,
+            maxTime:null,
         }
     },
     getInitialState:function(){
@@ -1668,7 +1709,11 @@ var ActionComponent = React.createClass({
         }
         function getTimeDesc(){
             if (this.props.changable){
-                return <input value = {this.state.timeNeed} className = {'scheduleInput form-control scheduleInput_'+this.props.type} type = 'number' onChange = {this.updateSchedule}/>
+                return <div className='scheduleAdjust'>
+                    <div className='adjustMinus'><HoldAdjustButton onAdjust={function(){this.updateSchedule({nativeEvent:{target:{value:this.state.timeNeed-1}}})}.bind(this)}>−</HoldAdjustButton><MinAdjustButton onClick={function(){this.updateSchedule({nativeEvent:{target:{value:this.props.minTime}}})}.bind(this)} /></div>
+                    <input value = {this.state.timeNeed} className = {'scheduleInput form-control scheduleInput_'+this.props.type} type = 'text' onChange = {this.updateSchedule}/>
+                    <div className='adjustPlus'><HoldAdjustButton onAdjust={function(){this.updateSchedule({nativeEvent:{target:{value:this.state.timeNeed+1}}})}.bind(this)}>+</HoldAdjustButton><MaxAdjustButton onClick={function(){this.updateSchedule({nativeEvent:{target:{value:this.props.maxTime || this.context.getTheMaxTimeToUse()}}})}.bind(this)} /></div>
+                </div>
             }else{
                 return <span>{this.props.timeNeed}</span>
             }
@@ -3153,6 +3198,9 @@ var ToiletComponent = React.createClass({
 var SleepPlaceComponent = React.createClass({
     contextTypes:{
         getBuildingLevel:React.PropTypes.func.isRequired,
+        getMaxState:React.PropTypes.func.isRequired,
+        getTheMaxTimeToUse:React.PropTypes.func.isRequired,
+        playerState:React.PropTypes.object.isRequired,
         season:React.PropTypes.string.isRequired,
         boxSaveData:React.PropTypes.object.isRequired,
     },
@@ -3199,7 +3247,7 @@ var SleepPlaceComponent = React.createClass({
                     </div>
                     <div>
                         {getSeasonDesc()}
-                        {!disabled?<ActionComponent disabled = {disabled} type = 'sleep'  require = {season=='winter'?{wood:1}:{}}  canGet = {sleepCanGet} props = {props} changable = {true} desc = '睡觉'/>:<div className = 'schedule'><table className = 'table'><thead><tr><td>无法使用</td></tr></thead></table></div>}
+                        {!disabled?<ActionComponent minTime = {1} maxTime = {Math.min(this.context.getTheMaxTimeToUse(),Math.max(1,Math.ceil((this.context.getMaxState('ps') - this.context.playerState.ps.amount) / sleepCanGet.ps)))} disabled = {disabled} type = 'sleep'  require = {season=='winter'?{wood:1}:{}}  canGet = {sleepCanGet} props = {props} changable = {true} desc = '睡觉'/>:<div className = 'schedule'><table className = 'table'><thead><tr><td>无法使用</td></tr></thead></table></div>}
                         {null/*season=='winter'?<ActionComponent type = 'wait' canGet = {waitCanGet} desc = '躺着'/>:null*/}
                     </div>
                     <StudioComponent isBuildingUpdate = {true} type = 'sleepPlaceUpdate'/>
@@ -4857,7 +4905,11 @@ var DungeonComponent = React.createClass({
                             <div style = {{marginTop:10,border:'1px solid #ddd'}}>
                                 <p>--到达层--</p>
                                 <div><ProgressComponent key = 'ropeGo' current = {dungeonSaveData.stairData[this.state.ropeGoTo] || 0} max = {MAX_DISCOVER}/></div>
-                                <input className = 'form-control rope' type = 'number'  onChange = {this.handleRopeChange} value = {this.state.ropeGoTo}/>
+                                <div className='scheduleAdjust'>
+                                    <HoldAdjustButton onAdjust={function(){this.handleRopeChange({nativeEvent:{target:{value:this.state.ropeGoTo-1}}})}.bind(this)}>−</HoldAdjustButton>
+                                    <input className = 'form-control rope' type = 'text' onChange = {this.handleRopeChange} value = {this.state.ropeGoTo}/>
+                                    <HoldAdjustButton onAdjust={function(){this.handleRopeChange({nativeEvent:{target:{value:this.state.ropeGoTo+1}}})}.bind(this)}>+</HoldAdjustButton>
+                                </div>
                                 <div>
                                     <BtnComponent disabled = {this.checkRopeDisable()} desc = '前往' handleClick = {this.handleRopeGo}/>
                                 </div>
