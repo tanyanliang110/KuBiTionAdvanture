@@ -646,6 +646,11 @@ var NormalMenuComponent = React.createClass({
         settings            :React.PropTypes.object.isRequired,
         upload              :React.PropTypes.func.isRequired,
         download            :React.PropTypes.func.isRequired,
+        exportLocalSave     :React.PropTypes.func.isRequired,
+        saveSlot            :React.PropTypes.func.isRequired,
+        loadSlot            :React.PropTypes.func.isRequired,
+        deleteSlot          :React.PropTypes.func.isRequired,
+        importSlot          :React.PropTypes.func.isRequired,
         setVolume           :React.PropTypes.func.isRequired,
         AudioEngine         :React.PropTypes.object.isRequired,
         currentScene        :React.PropTypes.string.isRequired,
@@ -674,6 +679,13 @@ var NormalMenuComponent = React.createClass({
     download:function() {
         this.context.download();
     },
+    exportLocalSave:function(slot) {
+        if(!OldKubiStorage.export(slot)) alert('没有找到本地存档...');
+    },
+    saveSlot:function(slot) { this.context.saveSlot(slot); },
+    loadSlot:function(slot) { this.context.loadSlot(slot); },
+    deleteSlot:function(slot) { this.context.deleteSlot(slot); },
+    importSlot:function(slot, event) { this.context.importSlot(slot, event); },
     quitMenu:function(){
         this.context.setStateFromChildren({showMenu:''});
     },
@@ -797,16 +809,28 @@ var NormalMenuComponent = React.createClass({
                     </div>
                 )
                 break;
+                case'save':
+                var slots = [];
+                for(var slot = 1; slot <= 3; slot++){
+                    var info = OldKubiStorage.getSlotInfo(slot);
+                    slots.push(<div className='save' key={slot}>
+                        <strong>存档 {slot}</strong>{info?<span> 第{info.day}天 {info.hour}时</span>:<span> 暂无存档</span>}
+                        <div>
+                            <BtnComponent handleClick={this.saveSlot.bind(this,slot)}>保存</BtnComponent>
+                            <BtnComponent handleClick={this.loadSlot.bind(this,slot)}>{info?'读取':'新游戏'}</BtnComponent>
+                            <BtnComponent disabled={!info} handleClick={this.exportLocalSave.bind(this,slot)}>导出</BtnComponent>
+                            <label className='btn'>导入<input type='file' accept='.json,application/json' style={{display:'none'}} onChange={this.importSlot.bind(this,slot)} /></label>
+                            <BtnComponent disabled={!info} handleClick={this.deleteSlot.bind(this,slot)}>删除</BtnComponent>
+                        </div>
+                    </div>);
+                }
+                return <div className='skillMenu'><p>存档保存在本机浏览器中。</p>{slots}</div>;
                 case'settings':
                 var settings = this.context.settings;
                 return (
                     <div className = 'skillMenu'>
                         <div style = {{marginTop:10}}>
                             <div>
-                                <label htmlFor="account">账号</label>
-                                <input onChange = {this.handleChange.bind(this,'account')} type="text" className = "form-control" id="account" value = {settings.save_account}></input>
-                                <label htmlFor="pass">密码</label>
-                                <input onChange = {this.handleChange.bind(this,'pass')} type="password" className = "form-control" id="pass" value = {settings.save_pass}></input>
                             </div>
                             <div>
                                 {this.context.currentScene != 'home'?<p style = {{color:'#ddd'}}>在家才能保存哦。。。</p>:null}
@@ -823,7 +847,6 @@ var NormalMenuComponent = React.createClass({
                         </label>
                         <BtnComponent handleClick = {this.context.setVolume}>声音：{this.context.AudioEngine.on?'开':'关'}</BtnComponent>
                         <BtnComponent handleClick = {this.setSort}>自动整理背包：{this.context.settings.sort?'开':'关'}</BtnComponent>
-                        <div><a target="blank" href = "http://1.maou.sinaapp.com/?page_id=47">作者的小站</a></div>
                     </div>
                 )
             }
@@ -836,6 +859,7 @@ var NormalMenuComponent = React.createClass({
                             </div>
                             <ul className="nav">
                                 <div className='btn' onClick = {this.handleTab.bind(this,'skill')}>技能</div>
+                                <div className='btn' onClick = {this.handleTab.bind(this,'save')}>存档</div>
                                 <div className='btn' onClick = {this.handleTab.bind(this,'settings')}>设置</div>
                             </ul>
                             <BtnComponent desc = '返回' handleClick = {this.quitMenu}/>
@@ -5175,6 +5199,11 @@ var MainComponent = React.createClass({
         useTime              : React.PropTypes.func.isRequired,
         upload               : React.PropTypes.func.isRequired,
         download             : React.PropTypes.func.isRequired,
+        exportLocalSave      : React.PropTypes.func.isRequired,
+        saveSlot             : React.PropTypes.func.isRequired,
+        loadSlot             : React.PropTypes.func.isRequired,
+        deleteSlot           : React.PropTypes.func.isRequired,
+        importSlot           : React.PropTypes.func.isRequired,
         settings             : React.PropTypes.object.isRequired,
         setVolume            : React.PropTypes.func.isRequired,
         callWindow           : React.PropTypes.func.isRequired,
@@ -5253,6 +5282,11 @@ var MainComponent = React.createClass({
             useTime             : this.useTime,
             upload              : this.upload,
             download            : this.download,
+            exportLocalSave     : this.exportLocalSave,
+            saveSlot             : this.saveSlot,
+            loadSlot             : this.loadSlot,
+            deleteSlot           : this.deleteSlot,
+            importSlot           : this.importSlot,
             settings            : this.state.settings,
             setVolume           : this.setVolume,
             callWindow          : this.callWindow,
@@ -6410,76 +6444,50 @@ var MainComponent = React.createClass({
             this.loadState(data);
         }.bind(this),100)
     },
-    download:function(){
-        var saveData = (this.state);
-        var save_account = saveData.settings.save_account;
-        var save_pass = saveData.settings.save_pass;
-        var jsonStr = 'action=load&account=' + save_account + '&pass=' + save_pass + '&data=nope';
-        var self = this;
-        var htmlobj = $.ajax({
-            contentType:"application/x-www-form-urlencoded",
-            type:'POST',
-            url:SAVE_URL,
-            async:true,
-            data:jsonStr,
-            success:function(){
-                if(htmlobj.responseText=='no account'){
-                    alert("没有这个账号...");
-                    return;
-                }
-                if(htmlobj.responseText=='incorrect pass'){
-                    alert("密码错误...");
-                    return;
-                }
-                if(htmlobj.responseText=='invalid'){
-                    alert("账号、密码必须是3-12位的数字以及字母的组合...");
-                    return;
-                }
-                    lll(htmlobj.responseText);
-                    alert("读取成功！");
-                    self.setState({saveData:htmlobj.responseText});
-                    self.loadData(htmlobj.responseText);
-        }});
+        upload:function(doNotShow){
+        if(OldKubiStorage.save(this.state)){
+            if(!doNotShow)alert('本地保存成功！');
+        }else if(!doNotShow){
+            alert('本地保存失败，请检查浏览器存储权限。');
+        }
     },
-    upload:function(doNotShow){
-        var saveData = clone(this.state);
-        var save_account = saveData.settings.save_account;
-        var save_pass = saveData.settings.save_pass;
-        var day = saveData.time.day;
-        var g = saveData.generation;
-        if(save_account == null||save_account == ''){
-            alert('不输入账号怎么保存啊。。。');
+    download:function(){
+        var data = OldKubiStorage.load();
+        if(!data){
+            alert('没有找到本地存档...');
             return;
         }
-        if(save_pass == null||save_pass == ''){
-            alert('不输入密码怎么保存啊。。。');
+        this.loadData(JSON.stringify(data));
+        alert('读取成功！');
+    },
+    exportLocalSave:function(slot){
+        if(!OldKubiStorage.export(slot)) alert('没有找到本地存档...');
+    },
+    saveSlot:function(slot){
+        if(OldKubiStorage.saveToSlot(this.state, slot)) alert('保存成功！');
+    },
+    loadSlot:function(slot){
+        var data = OldKubiStorage.loadFromSlot(slot);
+        OldKubiStorage.setActiveSlot(slot);
+        if(!data){
+            var newState = this.getInitialState();
+            this.setState(newState);
+            alert('已在存档 ' + slot + ' 开始新游戏！');
             return;
         }
-        delete saveData.settings;
-        delete saveData.saveData;
-        delete saveData.wind;
-        delete saveData.detailedItem;
-        delete saveData.detailedList;
-        delete saveData.detailedType;
-        var jsonStr = 'action=save&account=' + save_account + '&pass=' + save_pass + '&data=' + encodeURI(JSON.stringify(saveData)) + '&day=' + day + '&g=' + g;
-        var htmlobj = $.ajax({
-            contentType:"application/x-www-form-urlencoded",
-            type:'POST',
-            url:SAVE_URL,
-            async:true,
-            data:jsonStr,
-            success:function(){
-                if(htmlobj.responseText=='incorrect pass'){
-                    alert("密码错误...");
-                    return;
-                }
-                if(htmlobj.responseText=='invalid'){
-                    alert("账号、密码必须是3-12位的数字以及字母的组合...");
-                    return;
-                }
-                if(!doNotShow)alert("保存成功！");
-                    // self.setState({saveData:decodeURI(encodeURI(JSON.stringify(saveData)))});
-        }});
+        this.loadData(JSON.stringify(data));
+        alert('读取成功！');
+    },
+    deleteSlot:function(slot){
+        if(confirm('确定删除存档 ' + slot + ' 吗？')) OldKubiStorage.deleteSlot(slot);
+        this.setState({menuHint:this.state.menuHint});
+    },
+    importSlot:function(slot, event){
+        var self = this;
+        OldKubiStorage.import(event.target.files[0], slot, function(ok){
+            alert(ok ? '导入成功！' : '无效的存档文件。');
+            self.setState({menuHint:self.state.menuHint});
+        });
     },
 });
 function render(){
