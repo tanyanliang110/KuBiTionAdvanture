@@ -9,7 +9,6 @@ var MAX_STATE = 100;//所有状态的基础
 //宏变量
 
 var COOK_TIME_NEED = 0.5;
-var SAVE_URL = '//kubitionadvanture.sinaapp.com/save.php';
 var DELAY_MUL = (MODE == 'DEBUG')?0:400;
 // var DELAY_MUL = 400;
 var MIX_DELAY = 100;

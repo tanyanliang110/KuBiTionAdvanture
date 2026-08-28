@@ -4772,48 +4772,6 @@ var DungeonComponent = React.createClass({
             this.context.setStateFromChildren({currentScene:'home'});
         }.bind(this),1)
     },
-    onGameEndDisplay:function(){
-        var account = this.context.settings.account;
-        var time = this.context.time;
-        var jsonStr = 'action=end&day='+time.day+'&account='+account;
-        console.log(jsonStr);
-        $('#upload')[0].onclick = null;
-        htmlobj = $.ajax({contentType:"application/x-www-form-urlencoded",type:'POST',url:SAVE_URL,async:true,data:jsonStr,success:function(){
-            console.log(htmlobj.responseText);
-            this.handleBoard(htmlobj.responseText);
-        }});
-    },
-    handleBoard:function(d){
-        eval('var data = '+d+';');
-        function getTds(dataRow){
-            var result = []
-            for (var j = 1; j < dataRow.length; j++) {
-                result.push(<td key = {j}>dataRow[j]</td>)
-            }
-            return result;
-        }
-        function getRows(){
-            var result = [];
-            for (var i = data.length - 1; i >= 0; i--) {
-                result.push(<tr key = {i}>{getTds(data[i])}</tr>);
-            };
-        }
-        var board = (
-            <div>
-                <p>所有通关的英雄们：</p>
-                <div style="overflow:auto;"  className="buildTable tableOuter">
-                    <table style="overflow:auto;" className="table table-condensed table-hover table-striped table-bordered">
-                        <thead>
-                            <td>英雄大名</td>
-                            <td>存活时间</td>
-                            <td>通关时间</td>
-                        </thead>
-                        {getRows.bind(this)()}
-                    </table>
-                </div>
-            </div>
-            );
-    },
     onWin:function(){
         var time = this.context.time;
         var day = time.day;
@@ -4821,9 +4779,6 @@ var DungeonComponent = React.createClass({
         var wind  = <div>
                         <p>恭喜你到达了地牢的底端，你已经征服了这个游戏</p>
                         <p>你存活了:<span className="num">{day}</span>天</p>
-                        <p>现在你可以将你的大名写在石碑上：</p>
-                        <div className = "form-control">{account}</div>
-                        <div><BtnComponent className = "btn btn-default"  id = "upload" handleClick = {this.onGameEndDisplay}>铭刻</BtnComponent></div>
                     </div>
         this.context.callWindow(wind);
     },
