@@ -366,6 +366,11 @@ p{
 .equipmentSlotEmptyState{opacity:.65;}
 .equipmentSlotEmptyState .equipmentSlotEmpty{color:#eee;}
 .equipmentItem{white-space:nowrap;text-overflow:ellipsis;overflow:hidden;}
+.watchTime{margin-left:6px;color:#fff;font-weight:bold;}
+.travelWindow{width:420px;max-height:370px;margin:12px auto;padding:18px;background:#fff;border:1px solid #ccc;border-radius:6px;text-align:center;box-sizing:border-box;}
+.travelWindow h4{margin:0 0 14px;}
+.travelWindow td{vertical-align:middle;}
+.travelRows{max-height:270px;overflow-y:auto;margin-bottom:10px;}
 .detailVector{
     z-index: 0;
     font-size: 12px;

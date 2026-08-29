@@ -1124,6 +1124,7 @@ var BagComponent = React.createClass({
             }
             var maxDurable = ITEM_DATA[detailedItem].durable && this.context.getMaxDurable(detailedItem);
             var durable = this.context.durableSaveData[detailedItem];
+            var ownedTotal = ItemCount.getOwnedTotal(detailedItem,this.context.boxSaveData,this.context.currentEquip);
             return  <div className = "detailHead">
                         <p className = "detailVector effectHeading clearFix">
                             {ITEM_DATA[detailedItem].name}
@@ -1132,6 +1133,7 @@ var BagComponent = React.createClass({
                         <p className = "detailVector effectHeading clearFix">
                             {equipShow || TYPE_DATA[ITEM_DATA[detailedItem].type].name}
                         </p>
+                        <p className = "detailVector effectHeading clearFix">总:{ownedTotal}</p>
                         {(!IS_IPAD && ITEM_DATA[detailedItem].canUse)?<p className = "detailVector effectHeading clearFix" >右键使用</p> : null}
                         {maxDurable != undefined?<div className = "detailVector effectHeading clearFix" >耐久度：{maxDurable - durable}/{maxDurable}</div> : null}
                         <div className = "detailVector detailDesc">
@@ -1854,6 +1856,7 @@ var QuestComponent = React.createClass({
             name:null,
             forever:false,//是否为永久任务
             callBack:null,
+            watchReward:false,
         }
     },
     getInitialState:function () {
@@ -1883,6 +1886,10 @@ var QuestComponent = React.createClass({
         }
         this.context.changeItem(itemList,'register');
     },
+    finishWatch:function(){
+        this.context.setStateFromChildren({hasWatch:true});
+        this.context.callWindow(null);
+    },
     render:function(){
         var data = EVENT_DATA[this.props.event];
 
@@ -1899,6 +1906,9 @@ var QuestComponent = React.createClass({
                      )
         }
         if(this.state.done){
+            if(this.props.watchReward){
+                return <div><p>{data.d_2}</p><p>古董学家将修复好的古董手表交给了你。</p><BtnBack callBack={this.finishWatch}/></div>;
+            }
             if(data.mst){
                 var callBack = function(){
                     this.context.callWindow(<BattleComponent mst = {data.mst}/>);
@@ -2387,6 +2397,10 @@ var EventComponent = React.createClass({
 
 
         this.eventMap.misteryQuest_1 = <QuestComponent event = 'misteryQuest_1'/>;
+        this.eventMap.watchQuest_1 = <div><p>古董学家</p><p>神秘壶属于一套古董收藏，其中还有一块古董手表。它很可能还留在贼窝的赃物堆里。</p><BtnBack callBack = {this.setEventExperienced.bind(this,'watchQuest_1')}/></div>;
+        this.eventMap.watchQuest_1 = <div><p>--古董学家--</p><p>神秘壶属于一套古董收藏，其中还有一块古董手表。它很可能还留在贼窝的赃物堆里。</p><BtnBack callBack = {this.setEventExperienced.bind(this,'watchQuest_1')}/></div>;
+        this.eventMap.watchQuest_2 = <QuestComponent event = 'watchQuest_2'/>;
+        this.eventMap.watchQuest_3 = <QuestComponent event = 'watchQuest_3' watchReward = {true}/>;
         this.eventMap.misteryQuest_2 = <QuestComponent event = 'misteryQuest_2'/>;
         this.eventMap.misteryQuest_3 = <QuestComponent event = 'misteryQuest_3'/>;
 
@@ -2725,6 +2739,19 @@ var BigBoxComponent = React.createClass({
         }
         this.context.setStateFromChildren({boxSaveData:boxSaveData})
     },
+    storeExisting:function(){
+        var boxSaveData = clone(this.context.boxSaveData);
+        BigBoxStorage.storeExisting(boxSaveData.bag.things,boxSaveData.bigBox.things);
+        this.context.setStateFromChildren({boxSaveData:boxSaveData});
+    },
+    checkStoreExistingDisabled:function(){
+        var bag = this.context.boxSaveData.bag.things;
+        var bigBox = this.context.boxSaveData.bigBox.things;
+        for(var item in bag){
+            if(bigBox[item])return false;
+        }
+        return true;
+    },
     checkDisabled:function(){
         var boxSaveData = (this.context.boxSaveData);
         if(boxSaveData.bigBox.size <= getLength(boxSaveData.bigBox.things)){
@@ -2750,6 +2777,7 @@ var BigBoxComponent = React.createClass({
                     </div>
                     <StudioComponent onUpdate = {this.onUpdate} isBuildingUpdate = {true} type = 'bigBoxUpdate'/>
                     <BtnComponent disabled = {disabled} sound = 'all_in' handleClick = {this.allIn} desc = '全部放入'/>
+                    <BtnComponent disabled = {this.checkStoreExistingDisabled()} sound = 'all_in' handleClick = {this.storeExisting} desc = '归类存放'/>
                     <BtnComponent  sound = 'all_in' handleClick = {this.context.sort.bind(null,'bigBox')} desc = '整理'/>
                     <BtnBack/>
                 </div>
@@ -2848,6 +2876,7 @@ var WaitMakeComponent = React.createClass({
         getScienceLevel     : React.PropTypes.func.isRequired,
         season              : React.PropTypes.string.isRequired,
         skill               : React.PropTypes.object.isRequired,
+        changeMsg           : React.PropTypes.func.isRequired,
     },
     componentWillMount:function(){
         var level = this.context.getScienceLevel(this.props.building + 'SizeBonus');
@@ -2948,7 +2977,7 @@ var WaitMakeComponent = React.createClass({
                                 <td style={{color:COLOR.BLUE}}>{grtDesc.bind(this)() + tmp.desc}</td>
                                 <td><RequireComponent haveBox = {true} requireList = {tmp.require} /></td>
                                 <td>{tmp.timeMax/(1 + manageLevel)}</td>
-                                <td><RequireComponent isGreen = {true} requireList = {o(tmp.itemGet,this.getAmount(tmp.itemAmount))}/></td>
+                                <td><span onMouseEnter={this.context.changeMsg.bind(null,tmp.itemGet,'item')}><RequireComponent isGreen = {true} requireList = {o(tmp.itemGet,this.getAmount(tmp.itemAmount))}/></span></td>
                                 <td><BtnComponent style = {{margin:'0px'}} requireList = {tmp.require} disabled = {isFull} handleClick = {this.farm.bind(this,attr)} desc = "设置" /></td>
                             </tr>);
 
@@ -3277,6 +3306,20 @@ var SleepPlaceComponent = React.createClass({
 })
 //scene components
 //场景
+var TravelWindowComponent = React.createClass({
+    contextTypes:{
+        callWindow:React.PropTypes.func.isRequired,
+    },
+    getDefaultProps:function(){
+        return {places:[],onTravel:null};
+    },
+    render:function(){
+        var rows=this.props.places.map(function(place){
+            return <tr key={place.name}><td>{place.label}</td><td>耗时 {place.time}</td><td><BtnComponent handleClick={this.props.onTravel.bind(null,place.name)} desc="前往"/></td></tr>;
+        },this);
+        return <div className="travelWindow"><h4>前往其他地方</h4><div className="travelRows"><table className="table table-hover"><tbody>{rows}</tbody></table></div><BtnBack/></div>;
+    }
+});
 var PlaceComponent = React.createClass({
     //Adventure begins
     //冒险的场景
@@ -3290,6 +3333,7 @@ var PlaceComponent = React.createClass({
         return {
             isActing:false,
             resourceName:null,
+            travelOpen:false,
         };
     },
     contextTypes:{
@@ -3311,6 +3355,7 @@ var PlaceComponent = React.createClass({
         currentEquip        :React.PropTypes.object.isRequired,
         skill               :React.PropTypes.object.isRequired,
         getScienceLevel     :React.PropTypes.func.isRequired,
+        setCurrentScene     :React.PropTypes.func.isRequired,
     },
     resourceDec:function(resourceName){
         var resource = this.context.placeSaveData[this.props.place].resource[resourceName];
@@ -3436,6 +3481,11 @@ var PlaceComponent = React.createClass({
     handleEvent:function(event){
         var wind = <EventComponent type = {event} />;
         this.context.callWindow(wind);
+    },
+    travelTo:function(target){
+        var timeNeed = (PLACE_DATA[this.props.place].timeNeed || 0) + (PLACE_DATA[target].timeNeed || 0);
+        this.context.callWindow(null);
+        this.context.useTime(function(){this.context.setCurrentScene(target)}.bind(this),timeNeed);
     },
     getPermittion:function(){
         var name = this.props.place;
@@ -3587,7 +3637,7 @@ var PlaceComponent = React.createClass({
             var result = [];
             for(var attr in PLACE_DATA[name].event){
                 var eventSaveData = this.context.eventSaveData;
-                if(eventSaveData[attr].experienced)continue;
+                if(eventSaveData[attr].experienced && !(attr == 'watchQuest_1' && (!eventSaveData.watchQuest_2 || !eventSaveData.watchQuest_2.experienced)))continue;
                 var data = EVENT_DATA[attr];
                 if(data.event && !eventSaveData[data.event].experienced)continue;
                 result.push(<tr key = {'event_' + attr}><td>{data.name}</td><td colSpan = '4'>{data.desc}</td><td><BtnComponent  handleClick = {this.handleEvent.bind(this,attr)} desc = {data.btn || '对话'} /></td></tr>);
@@ -3603,6 +3653,16 @@ var PlaceComponent = React.createClass({
             if(!pickRequire.ps)pickRequire.ps = 3;
             var disabled = !this.context.checkHaveResourceAll(pickRequire);
             return <tr><td>{PLACE_DATA[name].thingsDesc || pickDesc}</td><td colSpan = {3}><ResourceDisplayComponent resource = {placeData.things}/></td><td><RequireComponent requireList = {pickRequire}/></td><td><BtnComponent disabled = {disabled} desc = {pickDesc} handleClick = {this.handlePick} /></td></tr>
+        }
+        function getTravel(){
+            var places=[];
+            for(var target in PLACE_DATA){
+                if(target==name || target=='upgradePlace' || target=='home' || target=='branch')continue;
+                if(!this.context.placeSaveData[target] || !this.context.placeSaveData[target].visited)continue;
+                var travelTime=(PLACE_DATA[name].timeNeed||0)+(PLACE_DATA[target].timeNeed||0);
+                places.push({name:target,label:PLACE_DATA[target].name,time:travelTime});
+            }
+            return <tr><td colSpan="6"><BtnComponent disabled={!places.length} handleClick={function(){this.context.callWindow(<TravelWindowComponent places={places} onTravel={this.travelTo}/>)}.bind(this)} desc="前往其他地方"/></td></tr>;
         }
         function getEntry(){
             function goToDunguen(){
@@ -3633,6 +3693,7 @@ var PlaceComponent = React.createClass({
                         {getPick.bind(this)()}
                         {getMsts.bind(this)()}
                         {getEvents.bind(this)()}
+                        {getTravel.bind(this)()}
                     </tbody>
                     </table>
                     <BtnHome placeName = {name}/>
@@ -4974,6 +5035,7 @@ var AdvanComponent = React.createClass({
         currentScene: React.PropTypes.string.isRequired,
         season      : React.PropTypes.string.isRequired,
         generation  : React.PropTypes.number.isRequired,
+        hasWatch    : React.PropTypes.bool.isRequired,
     },
     childContextTypes:{
         setTitle  : React.PropTypes.func.isRequired,
@@ -5094,7 +5156,7 @@ var AdvanComponent = React.createClass({
                 <div className="panel-heading">
                     <div className = "time" id = "time">
                         {this.context.generation?<span>-轮回{this.context.generation}-</span>:null}
-                        {seasonDescMap[this.context.season]}第<span className = "date">{time.day}</span>日 {getTimeDiplay(time.hour)}
+                        {seasonDescMap[this.context.season]}第<span className = "date">{time.day}</span>日 {getTimeDiplay(time.hour)}{this.context.hasWatch?<span className="watchTime"> {Math.floor(time.hour)}时</span>:null}
                         <div style = {{backgroundColor:getColor(time.hour)}} className = "weatherBox"></div>
                     </div>
                     <span> : </span>
@@ -5158,6 +5220,7 @@ var MainComponent = React.createClass({
                 picked:false,
             },
             generation      :0,
+            hasWatch        :false,
         }
         if(MODE=='DEBUG'){
             state.skill = DEBUG_SKILL;
@@ -5244,10 +5307,12 @@ var MainComponent = React.createClass({
         getMaxState          : React.PropTypes.func.isRequired,
         reBorn               : React.PropTypes.func.isRequired,
         generation           : React.PropTypes.number.isRequired,
+        hasWatch             : React.PropTypes.bool.isRequired,
     },
     getChildContext: function() {
         return {
             generation          : this.state.generation,
+            hasWatch            : this.state.hasWatch,
             reBorn              : this.reBorn,
             maouLevel           : this.state.maouLevel,
             sort                : this.sort,
@@ -6426,6 +6491,7 @@ var MainComponent = React.createClass({
         if(!data.maouLevel){
             data.maouLevel = 0;
         }
+        if(data.hasWatch === undefined)data.hasWatch = false;
         if(!data.currentEquip)data.currentEquip = {body:null,hand:null,foot:null,head:null,neck:null};
         if(data.currentEquip.neck === undefined)data.currentEquip.neck = null;
         if(!data.robberSaveData){
@@ -6484,7 +6550,7 @@ var MainComponent = React.createClass({
         //新事件
         for(var attr in EVENT_INIT){
             if(EVENT_INIT[attr] != undefined && (data.eventSaveData[attr] == undefined)){
-                data.eventSaveData[attr] = EVENT_INIT[attr];
+                data.eventSaveData[attr] = clone(EVENT_INIT[attr]);
             }
         }
         this.setState(data);

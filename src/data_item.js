@@ -618,6 +618,12 @@ var ITEM_DATA = {
         desc:'并不能打开它。',
         value:100,
     },
+    brokenAntiqueWatch:{
+        name:'破损的古董手表',
+        type:'quest',
+        desc:'需要交给古董学家修复。',
+        value:100,
+    },
     misteryCry:{
         name:'神秘瓶',
         type:'quest',
