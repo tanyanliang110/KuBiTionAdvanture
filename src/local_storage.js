@@ -83,7 +83,7 @@ var OldKubiStorage = {
 
     getSlotInfo: function(slot) {
         var data = this.loadFromSlot(slot);
-        return data ? {day: data.time && data.time.day || 0, hour: data.time && data.time.hour || 0} : null;
+        return data ? {day: data.time && data.time.day || 0, hour: Math.floor((data.time && data.time.hour) || 0)} : null;
     },
 
     export: function(slot) {

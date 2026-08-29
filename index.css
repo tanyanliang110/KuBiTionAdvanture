@@ -328,9 +328,44 @@ p{
     float: left;
     margin: 10px;
     width:570px;
-    height:70px;
+    height:105px;
     background-color: #A1A693;
 }
+.equipmentBar{
+    clear:both;
+    height:34px;
+    width:calc(100% - 30px);
+    box-sizing:border-box;
+    margin:0;
+    padding:3px 0;
+    display:flex;
+    gap:6px;
+    align-items:center;
+}
+.equipmentSlot{
+    flex:1 1 0;
+    min-width:0;
+    height:27px;
+    box-sizing:border-box;
+    border:1px solid rgba(204,204,204,.9);
+    border-radius:4px;
+    background:rgba(100,100,100,.18);
+    color:#fff;
+    text-align:center;
+    line-height:25px;
+    font-size:11px;
+    overflow:hidden;
+    cursor:pointer;
+}
+.equipmentSlotEquipped{
+    background:rgba(255,224,128,.65);
+    border-color:#e6d28b;
+    color:#4a3b16;
+    box-shadow:0 0 4px rgba(255,235,150,.8);
+}
+.equipmentSlotEmptyState{opacity:.65;}
+.equipmentSlotEmptyState .equipmentSlotEmpty{color:#eee;}
+.equipmentItem{white-space:nowrap;text-overflow:ellipsis;overflow:hidden;}
 .detailVector{
     z-index: 0;
     font-size: 12px;

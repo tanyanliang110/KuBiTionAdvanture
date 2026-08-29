@@ -1,7 +1,6 @@
 //《超苦逼冒险者》
 //使用框架：React，jQuery
 //作者：maou
-//联系方式：496863906@qq.com
 
 
 'use strict';
@@ -1196,6 +1195,26 @@ var BagComponent = React.createClass({
                 </div>
     }
 });
+var EquipmentBarComponent = React.createClass({
+    contextTypes:{
+        currentEquip:React.PropTypes.object.isRequired,
+        changeMsg:React.PropTypes.func.isRequired,
+        unequip:React.PropTypes.func.isRequired,
+    },
+    render:function(){
+        var slots = ['head','body','hand','foot','neck'];
+        return <div className="equipmentBar">
+            {slots.map(function(type){
+                var item = this.context.currentEquip[type];
+                return <div className={'equipmentSlot ' + (item?'equipmentSlotEquipped':'equipmentSlotEmptyState')} key={type}
+                    onMouseEnter={item?this.context.changeMsg.bind(null,item,'item'):null}
+                    onContextMenu={item?function(event){event.preventDefault();this.context.unequip(type)}.bind(this):null}>
+                    {item?<div className="equipmentItem">{ITEM_DATA[item].name}</div>:<span className="equipmentSlotEmpty">{EQUIP_TYPE_DATA[type] || type}</span>}
+                </div>;
+            },this)}
+        </div>;
+    }
+});
 var StateComponent = React.createClass({
     render:function(){
         function getStatesName(){
@@ -1209,6 +1228,7 @@ var StateComponent = React.createClass({
                     {getStatesName()}
                     <MenuBtnComponent />
                     {MODE=='DEBUG'?<DebugComponent/>:null}
+                    <EquipmentBarComponent />
                 </div>
     }
 })
@@ -5105,7 +5125,7 @@ var MainComponent = React.createClass({
             buildingSaveData:clone(BUILDING_INIT),
             coolDownSaveData:clone(COOL_DOWN_INIT),
             currentBox      :'',
-            currentEquip    :{body:null,hand:null,foot:null,head:null},
+            currentEquip    :{body:null,hand:null,foot:null,head:null,neck:null},
             currentScene    :'home',
             defaultWeapon   :[],
             detailedItem    :'',
@@ -5217,6 +5237,7 @@ var MainComponent = React.createClass({
         campSaveData         : React.PropTypes.object.isRequired,
         robberSaveData       : React.PropTypes.object.isRequired,
         handleItemClick      : React.PropTypes.func.isRequired,
+        unequip             : React.PropTypes.func.isRequired,
         getEnveronmentTemperature: React.PropTypes.func.isRequired,
         currentBox           : React.PropTypes.string.isRequired,
         sort                 : React.PropTypes.func.isRequired,
@@ -5236,6 +5257,7 @@ var MainComponent = React.createClass({
             boxSaveData         : this.state.boxSaveData,
             buildingSaveData    : this.state.buildingSaveData,
             cancelEquip         : this.cancelEquip,
+            unequip             : this.unequip,
             changeItem          : this.changeItem,
             changeMsg           : this.changeMsg,
             checkFull           : this.checkFull,
@@ -5435,12 +5457,26 @@ var MainComponent = React.createClass({
             }else{
                 var equipType = ITEM_DATA[item].equipType;
                 var currentEquip = clone(this.state.currentEquip);
+                var previousEquip = currentEquip[equipType];
                 if(currentEquip[equipType] == item){
                     currentEquip[equipType] = null;
                 }else{
                     currentEquip[equipType] = item;
                 }
-                this.setStateFromChildren({currentEquip:currentEquip});
+                if(currentEquip[equipType] == item){
+                    var boxSaveData = clone(this.state.boxSaveData);
+                    var bagThings = boxSaveData.bag.things;
+                    bagThings[item] = (bagThings[item] || 0) - 1;
+                    if(bagThings[item] <= 0) delete bagThings[item];
+                    if(previousEquip) bagThings[previousEquip] = (bagThings[previousEquip] || 0) + 1;
+                    this.setState({boxSaveData:boxSaveData,currentEquip:currentEquip});
+                }else if(previousEquip){
+                    var boxSaveData = clone(this.state.boxSaveData);
+                    boxSaveData.bag.things[item] = (boxSaveData.bag.things[item] || 0) + 1;
+                    this.setState({boxSaveData:boxSaveData,currentEquip:currentEquip});
+                }else{
+                    this.setState({currentEquip:currentEquip});
+                }
                 this.AudioEngine.playEffect('wear');
             }
         }
@@ -5664,6 +5700,21 @@ var MainComponent = React.createClass({
         var fullTime = Math.floor(this.state.playerState.full.amount/FULL_DESC_PER_HOUR - 0.0001);
         var moistTime =  Math.floor(this.state.playerState.moist.amount/MOIST_DESC_PER_HOUR - 0.0001);
         return moistTime > fullTime?fullTime:moistTime;
+    },
+    unequip:function(equipType){
+        var itemName = this.state.currentEquip[equipType];
+        if(!itemName)return;
+        var bag = this.state.boxSaveData.bag;
+        if(this.checkFull(bag,itemName)){
+            this.showMsg(<p key={Math.random()}>背包已满，无法脱下装备</p>);
+            return;
+        }
+        var boxSaveData = clone(this.state.boxSaveData);
+        boxSaveData.bag.things[itemName] = (boxSaveData.bag.things[itemName] || 0) + 1;
+        var currentEquip = clone(this.state.currentEquip);
+        currentEquip[equipType] = null;
+        this.setState({boxSaveData:boxSaveData,currentEquip:currentEquip});
+        this.AudioEngine.playEffect('pick');
     },
     cancelEquip:function(itemName){
         //卸下装备
@@ -6375,6 +6426,8 @@ var MainComponent = React.createClass({
         if(!data.maouLevel){
             data.maouLevel = 0;
         }
+        if(!data.currentEquip)data.currentEquip = {body:null,hand:null,foot:null,head:null,neck:null};
+        if(data.currentEquip.neck === undefined)data.currentEquip.neck = null;
         if(!data.robberSaveData){
             data.robberSaveData = ROBBER_INIT;
         }
