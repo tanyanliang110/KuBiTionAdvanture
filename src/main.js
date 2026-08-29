@@ -2703,9 +2703,7 @@ var BigBoxComponent = React.createClass({
         this.context.setStateFromChildren({boxSaveData:boxSaveData});
     },
     allIn:function(){
-        var cancelEquip = this.context.cancelEquip;
         function exchange(name){
-            cancelEquip(name);
             if(bigBox.things[name]){
                 bigBox.things[name] += bag.things[name];
             }else{
@@ -5818,7 +5816,6 @@ var MainComponent = React.createClass({
         this.changeItem(o,fromBox);
         o[itemName] = Math.ceil(amount);
         this.changeItem(o,toBox);
-        this.cancelEquip(itemName);
         this.AudioEngine.playEffect('exchange');
 
         if(this.state.settings.sort)this.sort('bag');
