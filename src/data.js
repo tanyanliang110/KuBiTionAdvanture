@@ -652,8 +652,8 @@ var COOK_DATA = [
     {name:"warmAlco",require:["wood","fruitAlco"]},
     {name:"warmAlco",require:["wood","vodka"]},
 
-    {name:"humanCook",require:["humanMeat"]},
-    {name:"dragonScaleSoap",require:["dragonScale"]},
+    {name:"humanCook",require:["humanMeat","water"]},
+    {name:"dragonScaleSoap",require:["dragonScale","water"]},
     {name:"dragonBoneSoap",require:["dragonBone",'water']},
 
     {name:"rowFish",require:["fish",'knife']},

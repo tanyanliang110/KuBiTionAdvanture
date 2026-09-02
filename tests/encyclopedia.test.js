@@ -71,6 +71,14 @@ var duplicateRecipes = EncyclopediaData.getRecipeEntries({
     {name:'hotWater',require:['wood','water']}
 ], {});
 if (duplicateRecipes.length !== 1) throw new Error('原料顺序不同但组合相同的食谱应只显示一次');
+var humanRecipe = EncyclopediaData.getRecipeEntries({
+    humanCook:{name:'煮人肉'}, humanMeat:{name:'尸体'}, water:{name:'水'}
+}, [{name:'humanCook',require:['humanMeat','water']}], {});
+if (humanRecipe[0].requireNames.join('、') !== '尸体、水') throw new Error('煮人肉应显示尸体和水两种原料');
+var dragonScaleRecipe = EncyclopediaData.getRecipeEntries({
+    dragonScaleSoap:{name:'龙鳞汤'}, dragonScale:{name:'龙鳞'}, water:{name:'水'}
+}, [{name:'dragonScaleSoap',require:['dragonScale','water']}], {});
+if (dragonScaleRecipe[0].requireNames.join('、') !== '龙鳞、水') throw new Error('龙鳞汤应显示龙鳞和水两种原料');
 if (sortedRecipes[0].result !== 'fireWater' || !sortedRecipes[0].known) throw new Error('已解锁食谱应排在未解锁食谱之前');
 
 var catalogItems = {

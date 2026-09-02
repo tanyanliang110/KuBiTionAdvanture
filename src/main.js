@@ -2772,10 +2772,9 @@ var MsgBox = React.createClass({
     },
     render: function() {
         var msgList = this.context.msgList;
-        var list = [];
-        for (var i = msgList.length - 1; i >= 0; i--) {
-            list[msgList.length - i] = msgList[i];
-        };
+        var list = msgList.map(function(entry){
+            return React.cloneElement(entry.message,{key:entry.key});
+        });
         return (
         <div className='msgShow'>
             <ReactCSSTransitionGroup transitionEnterTimeout = {200} transitionLeaveTimeout = {1000} transitionName = "msg" className = "msg">
@@ -3585,6 +3584,7 @@ var PlaceComponent = React.createClass({
         this.context.callWindow(wind);
     },
     travelTo:function(target){
+        if(PLACE_DATA[target].season && PLACE_DATA[target].season != this.context.season)return;
         var timeNeed = (PLACE_DATA[this.props.place].timeNeed || 0) + (PLACE_DATA[target].timeNeed || 0);
         this.context.callWindow(null);
         this.context.useTime(function(){this.context.setCurrentScene(target)}.bind(this),timeNeed);
@@ -3757,13 +3757,7 @@ var PlaceComponent = React.createClass({
             return <tr><td>{PLACE_DATA[name].thingsDesc || pickDesc}</td><td colSpan = {3}><ResourceDisplayComponent resource = {placeData.things}/></td><td><RequireComponent requireList = {pickRequire}/></td><td><BtnComponent disabled = {disabled} desc = {pickDesc} handleClick = {this.handlePick} /></td></tr>
         }
         function getTravel(){
-            var places=[];
-            for(var target in PLACE_DATA){
-                if(target==name || target=='upgradePlace' || target=='home' || target=='branch')continue;
-                if(!this.context.placeSaveData[target] || !this.context.placeSaveData[target].visited)continue;
-                var travelTime=(PLACE_DATA[name].timeNeed||0)+(PLACE_DATA[target].timeNeed||0);
-                places.push({name:target,label:PLACE_DATA[target].name,time:travelTime});
-            }
+            var places = FastTravel.getAvailablePlaces(PLACE_DATA,this.context.placeSaveData,name,this.context.season);
             return <tr><td colSpan="6"><BtnComponent disabled={!places.length} handleClick={function(){this.context.callWindow(<TravelWindowComponent places={places} onTravel={this.travelTo}/>)}.bind(this)} desc="前往其他地方"/></td></tr>;
         }
         function getEntry(){
@@ -5718,14 +5712,15 @@ var MainComponent = React.createClass({
         },
     },
     showMsg:function(msg){
-        var msgList = this.state.msgList;
-        msgList.push(msg);
-        this.setState({msgList:msgList});
+        var queue = MessageQueue.create();
+        queue.items = this.state.msgList.slice();
+        var entry = queue.add(msg);
+        this.setState({msgList:queue.items});
         setTimeout((function(){
-            var msgList = this.state.msgList;
-            if(msgList.length==0)return;
-            msgList.splice(0,1);
-            this.setState({msgList:msgList});
+            var current = MessageQueue.create();
+            current.items = this.state.msgList.slice();
+            current.remove(entry.key);
+            this.setState({msgList:current.items});
         }).bind(this),MSG_TIME)
     },
     getValue:function(give){
@@ -6215,7 +6210,7 @@ var MainComponent = React.createClass({
                 <div style = {{margin:100}}>
                     <p>你死了！</p>
                     <p>死因：{reason}</p>
-                    <BtnComponent handleClick = {this.download.bind(null)}>读档</BtnComponent>
+                    <BtnComponent handleClick = {this.download}>读档</BtnComponent>
                     <BtnComponent handleClick = {this.init}>重新开始</BtnComponent>
                 </div>
             )
@@ -6611,6 +6606,8 @@ var MainComponent = React.createClass({
         data.detailedItem = '';
         data.detailedType = '';
         data.detailedList = [];
+        data.menuDesc = <div></div>;
+        data.showMenu = '';
         data.currentBox = '';
 
         if(!data.generation){
@@ -6693,7 +6690,6 @@ var MainComponent = React.createClass({
             if(equip && EncyclopediaData.isCollectible(equip,ITEM_DATA,PLACE_DATA))data.knownItems[equip] = true;
         }
         this.setState(data);
-        this.setState({showMenu:''});
         this.setState({currentScene:'home'});
         var level = this.getScienceLevel('bagSizeBonus');
         var boxSaveData = this.state.boxSaveData;

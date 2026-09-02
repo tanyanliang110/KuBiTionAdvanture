@@ -466,7 +466,7 @@ var PLACE_DATA = {
                 balancedAmount:3
             },
         },
-        temp:-10,
+        temp:-20,
         things:{
             water:10,
             iceHeart:2,
