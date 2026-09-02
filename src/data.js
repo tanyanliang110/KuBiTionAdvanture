@@ -582,7 +582,6 @@ var COOK_DATA = [
     {name:"salad",require:["veg","seed"]},
     {name:"salad",require:["veg","flower"]},
     {name:"salad",require:["veg","jam"]},
-    {name:"salad",require:["veg","seed"]},
     {name:"salad",require:["seed","jam"]},
 
 
@@ -613,7 +612,6 @@ var COOK_DATA = [
 
     {name:"flowerTea",require:["water","flower"]},
     {name:"hotFlowerTea",require:["flowerTea","wood"]},
-    {name:"jamBread",require:["jam","flour"]},
     {name:"jamBread",require:["jam","bread"]},
 
     {name:"fruitAlco",require:["juice","alco"]},
@@ -627,7 +625,6 @@ var COOK_DATA = [
     {name:"woodBread",require:["wood","bread"]},
     {name:"fruitBread",require:["fruit","bread"]},
     {name:"seedBread",require:["seed","bread"]},
-    {name:"seedBread",require:["seed","flour"]},
     {name:"sandwich",require:["bread","veg"]},
     {name:"flowerBread",require:["bread","flower"]},
     {name:"hamburger",require:["bread","meat"]},
@@ -639,7 +636,6 @@ var COOK_DATA = [
     {name:"beanJelly",require:["herb","water"]},
     {name:"bakeWing",require:["wing","wood"]},
     {name:"boilEgg",require:["spiderEgg","water"]},
-    {name:"hotWater",require:["wood","water"]},
 
     {name:"fishMeat",require:["fish","meat"]},
     {name:"woodFish",require:["fish","wood"]},

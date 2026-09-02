@@ -222,6 +222,123 @@ html, .background {
 }
 .skillMenu{
 }
+.encyclopediaMenu{
+    height: 262px;
+    display: flex;
+    text-align: left;
+}
+.encyclopediaTabs{
+    height: 38px;
+    padding: 5px 8px 0;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+.encyclopediaTabs .btn{
+    margin-right: 7px;
+    padding: 5px 15px;
+    border: 1px solid #c8c8c8;
+    background: #f4f4f4;
+}
+.encyclopediaTabs .encyclopediaTabActive{
+    color: #fff;
+    background: #7f9b68;
+    border-color: #6c8657;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
+}
+.encyclopediaList{
+    width: 145px;
+    padding: 6px;
+    overflow-y: auto;
+    border-right: 1px solid #ddd;
+}
+.encyclopediaItem{
+    display: block;
+    margin: 3px;
+    padding: 5px;
+    text-align: center;
+}
+.encyclopediaSelected{
+    background: #9FAA83;
+    color: #fff;
+}
+.encyclopediaDetail{
+    flex: 1;
+    padding: 8px 12px;
+    overflow-y: auto;
+}
+.encyclopediaDetail h4{
+    margin-top: 0;
+}
+.encyclopediaDetail ul{
+    padding-left: 20px;
+}
+.encyclopediaDetail li{
+    margin: 7px 0;
+}
+.encyclopediaRandom{
+    margin-left: 6px;
+    color: #888;
+}
+.encyclopediaDetailLink{
+    cursor: pointer;
+}
+.encyclopediaTotal{
+    float: right;
+    background: #777;
+}
+.encyclopediaRecipeList{
+    height: 262px;
+    padding: 8px 14px;
+    overflow-y: auto;
+    text-align: left;
+}
+.encyclopediaRecipeList > p{
+    color: #777;
+}
+.encyclopediaRecipeList ul{
+    padding-left: 0;
+    list-style: none;
+}
+.encyclopediaRecipeList li{
+    margin: 6px 0;
+    padding: 7px 9px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+}
+.encyclopediaRecipeList li p{
+    margin: 4px 0 0;
+    color: #666;
+}
+.encyclopediaRecipeUnknown{
+    color: #888;
+    background: #f6f6f6;
+}
+.encyclopediaRecipeKnown{
+    background: #eef5e8;
+    border-color: #c4d6b5 !important;
+}
+.encyclopediaRecipeArrow{
+    margin: 0 8px;
+    color: #888;
+}
+.encyclopediaRecipeResult{
+    cursor: help;
+}
+.encyclopediaRecipeTooltip{
+    position: fixed;
+    z-index: 1000;
+    width: 250px;
+    min-height: 100px;
+    padding: 10px 12px;
+    box-sizing: border-box;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.22);
+    pointer-events: none;
+    text-align: left;
+}
+.encyclopediaRecipeTooltip h4,.encyclopediaRecipeTooltip p{margin: 4px 0;}
 .skill{
     vertical-align: middle;
     height: 280px;

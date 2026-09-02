@@ -150,6 +150,10 @@ var ItemComponent = React.createClass({
     },
     itemMouseEnter:function(){
         this.context.changeMsg(this.props.item,'item');
+        EncyclopediaShortcut.setHoveredItem(this.props.item);
+    },
+    itemMouseLeave:function(){
+        EncyclopediaShortcut.clearHoveredItem();
     },
     itemMouseClick:function(event){
         // this.context.AudioEngine.playEffect('pick');
@@ -192,7 +196,7 @@ var ItemComponent = React.createClass({
         var item = this.props.item;
         var isCurrentEquip = this.checkIfISCurrentEquip(item);
         var maxDurable = this.context.getMaxDurable(item);
-        return      <div className = {"item " + (isCurrentEquip?'currentEquip':'')} onMouseEnter = {this.itemMouseEnter} onClick = {this.itemMouseClick} onContextMenu = {this.itemClickRight}>
+        return      <div className = {"item " + (isCurrentEquip?'currentEquip':'')} onMouseEnter = {this.itemMouseEnter} onMouseLeave = {this.itemMouseLeave} onClick = {this.itemMouseClick} onContextMenu = {this.itemClickRight}>
                         <p style = {{color:(TYPE_DATA[ITEM_DATA[this.props.item].type].color||COLOR.BLACK)}}>{ITEM_DATA[item].name}</p>
                         {ITEM_DATA[item].durable?<ProgressComponent  addStyle = {{position: 'absolute',width: '30px',left: '9px',top: '22px',height: '5px'}} max = {maxDurable} current = {maxDurable - this.context.durableSaveData[item]} />:null}
                         <span className = "badge itemAmount">{this.props.amount}</span>
@@ -623,7 +627,7 @@ var MenuBtnComponent = React.createClass({
         setStateFromChildren:React.PropTypes.func.isRequired,
     },
     handleClick:function(){
-        this.context.setStateFromChildren({showMenu:'menu'});
+        this.context.setStateFromChildren({showMenu:'menu',encyclopediaItem:''});
     },
     render:function(){
         var menuHint = this.context.menuHint;
@@ -636,6 +640,93 @@ var CustomMenuComponent = React.createClass({
     },
     render:function(){
         return <div>{this.context.menuDesc}</div>
+    }
+});
+var EncyclopediaComponent = React.createClass({
+    contextTypes:{
+        changeMsg:React.PropTypes.func.isRequired,
+        boxSaveData:React.PropTypes.object.isRequired,
+        currentEquip:React.PropTypes.object.isRequired,
+        knownRecipes:React.PropTypes.object.isRequired,
+        knownItems:React.PropTypes.object.isRequired,
+        placeSaveData:React.PropTypes.object.isRequired,
+        encyclopediaItem:React.PropTypes.string.isRequired,
+    },
+    getInitialState:function(){
+        var item = this.context.encyclopediaItem;
+        var category = item && ITEM_DATA[item] && ITEM_DATA[item].type == 'food' ? 'ingredient' : 'material';
+        var entries = EncyclopediaData.getCollectibleEntries(ITEM_DATA,PLACE_DATA,this.context.placeSaveData,this.context.knownItems,category);
+        return {category:category,selectedItem:item || (entries.length ? entries[0].item : null),recipeTooltip:null};
+    },
+    selectItem:function(item){
+        this.setState({selectedItem:item});
+    },
+    selectCategory:function(category){
+        var entries = EncyclopediaData.getCollectibleEntries(ITEM_DATA,PLACE_DATA,this.context.placeSaveData,this.context.knownItems,category);
+        this.setState({category:category,selectedItem:entries.length ? entries[0].item : null});
+    },
+    showRecipeTooltip:function(item,event){
+        var position = EncyclopediaData.getRecipeTooltipPosition(event,window.innerWidth,window.innerHeight,250,150);
+        this.setState({recipeTooltip:{item:item,left:position.left,top:position.top}});
+    },
+    hideRecipeTooltip:function(){
+        this.setState({recipeTooltip:null});
+    },
+    render:function(){
+        var entries = EncyclopediaData.getCollectibleEntries(ITEM_DATA,PLACE_DATA,this.context.placeSaveData,this.context.knownItems,this.state.category);
+        var selected = null;
+        for(var i = 0; i < entries.length; i++){
+            if(entries[i].item == this.state.selectedItem)selected = entries[i];
+        }
+        if(!selected && entries.length)selected = entries[0];
+        var itemList = entries.map(function(entry){
+            return <div className={'btn encyclopediaItem ' + (selected && selected.item == entry.item ? 'encyclopediaSelected' : '')}
+                        onClick={this.selectItem.bind(this,entry.item)} key={entry.item}>{entry.name}</div>;
+        }.bind(this));
+        var sources = selected ? selected.sources.map(function(source,index){
+            if(!source.known)return <li key={index}>{source.placeName}</li>;
+            return <li key={index}>{source.placeName}{source.random ? <span className="encyclopediaRandom">（探索可获得）</span> : null}</li>;
+        }) : <li>暂无可记录的材料来源</li>;
+        var recipes = EncyclopediaData.getRecipeEntries(ITEM_DATA,COOK_DATA,this.context.knownRecipes);
+        var recipeList = recipes.map(function(recipe,index){
+            var detailItem = EncyclopediaData.getRecipeDetailItem(recipe);
+            var showDetail = function(event){
+                if(detailItem)this.showRecipeTooltip(detailItem,event);
+            }.bind(this);
+            return <li className={recipe.known ? 'encyclopediaRecipeKnown' : 'encyclopediaRecipeUnknown'} key={index}>
+                        {recipe.requireNames.join(' + ')}<span className="encyclopediaRecipeArrow">→</span><strong onMouseEnter={showDetail} onMouseMove={showDetail} onMouseLeave={this.hideRecipeTooltip} className={detailItem ? 'encyclopediaRecipeResult' : ''}>{recipe.resultName}</strong>
+                        {recipe.desc ? <p>{recipe.desc}</p> : null}
+                   </li>;
+        }.bind(this));
+        var content = this.state.category == 'recipe' ?
+            <div className="encyclopediaRecipeList"><p>配方：原料 → 成品</p><ul>{recipeList}</ul></div> :
+            <div className="encyclopediaMenu">
+                    <div className="encyclopediaList">{itemList}</div>
+                    <div className="encyclopediaDetail">
+                        {selected ? <div>
+                            <h4>{selected.name}<span className="badge encyclopediaTotal">已有 {ItemCount.getOwnedTotal(selected.item,this.context.boxSaveData,this.context.currentEquip)}</span></h4>
+                            <p>{selected.known ? selected.desc : '尚未获得该物品。'}</p>
+                            <p>采集来源：</p>
+                            <ul>{sources}</ul>
+                        </div> : <p>暂无材料资料</p>}
+                    </div>
+                </div>;
+        var tooltip = this.state.recipeTooltip;
+        var tooltipData = tooltip && ITEM_DATA[tooltip.item];
+        var tooltipView = tooltipData ? <div className="encyclopediaRecipeTooltip" style={{left:tooltip.left,top:tooltip.top}}>
+            <h4>{tooltipData.name}</h4>
+            <p>{tooltipData.desc}</p>
+            {tooltipData.effect ? <p>{Object.keys(tooltipData.effect).map(function(attr){return <span key={attr}>{STATE_DATA[attr].name}:{tooltipData.effect[attr] > 0 ? '+' : ''}{tooltipData.effect[attr]} </span>;})}</p> : null}
+        </div> : null;
+        return <div>
+                    <div className="encyclopediaTabs">
+                        <div className={'btn ' + (this.state.category == 'material' ? 'encyclopediaTabActive' : '')} onClick={this.selectCategory.bind(this,'material')}>材料</div>
+                        <div className={'btn ' + (this.state.category == 'ingredient' ? 'encyclopediaTabActive' : '')} onClick={this.selectCategory.bind(this,'ingredient')}>食材</div>
+                        <div className={'btn ' + (this.state.category == 'recipe' ? 'encyclopediaTabActive' : '')} onClick={this.selectCategory.bind(this,'recipe')}>食谱</div>
+                    </div>
+                    {content}
+                    {tooltipView}
+                </div>;
     }
 });
 var NormalMenuComponent = React.createClass({
@@ -656,6 +747,7 @@ var NormalMenuComponent = React.createClass({
         menuHint            :React.PropTypes.number.isRequired,
         mstState            :React.PropTypes.object.isRequired,
         robberSaveData      :React.PropTypes.object.isRequired,
+        encyclopediaItem    :React.PropTypes.string.isRequired,
     },
     getDefaultProps:function(){
     },
@@ -663,6 +755,9 @@ var NormalMenuComponent = React.createClass({
         var menuType ='settings';
         if(this.context.menuHint){
             menuType = 'skill';
+        }
+        if(this.context.encyclopediaItem){
+            menuType = 'encyclopedia';
         }
         return{
             menuType:menuType,
@@ -686,7 +781,7 @@ var NormalMenuComponent = React.createClass({
     deleteSlot:function(slot) { this.context.deleteSlot(slot); },
     importSlot:function(slot, event) { this.context.importSlot(slot, event); },
     quitMenu:function(){
-        this.context.setStateFromChildren({showMenu:''});
+        this.context.setStateFromChildren({showMenu:'',encyclopediaItem:''});
     },
     handleTab:function(menuType){
         this.setState({menuType:menuType});
@@ -848,6 +943,8 @@ var NormalMenuComponent = React.createClass({
                         <BtnComponent handleClick = {this.setSort}>自动整理背包：{this.context.settings.sort?'开':'关'}</BtnComponent>
                     </div>
                 )
+                case'encyclopedia':
+                return <EncyclopediaComponent />;
             }
         }
         return  <div className = 'menuOuter'>
@@ -858,6 +955,7 @@ var NormalMenuComponent = React.createClass({
                             </div>
                             <ul className="nav">
                                 <div className='btn' onClick = {this.handleTab.bind(this,'skill')}>技能</div>
+                                <div className='btn' onClick = {this.handleTab.bind(this,'encyclopedia')}>百科</div>
                                 <div className='btn' onClick = {this.handleTab.bind(this,'save')}>存档</div>
                                 <div className='btn' onClick = {this.handleTab.bind(this,'settings')}>设置</div>
                             </ul>
@@ -1049,6 +1147,7 @@ var BagComponent = React.createClass({
         currentEquip   :React.PropTypes.object.isRequired,
         playerState    :React.PropTypes.object.isRequired,
         handleItemClick:React.PropTypes.func.isRequired,
+        openEncyclopedia:React.PropTypes.func.isRequired,
         currentBox     :React.PropTypes.string.isRequired,
     },
     getDefaultProps:function(){
@@ -1134,6 +1233,7 @@ var BagComponent = React.createClass({
                             {equipShow || TYPE_DATA[ITEM_DATA[detailedItem].type].name}
                         </p>
                         <p className = "detailVector effectHeading clearFix">总:{ownedTotal}</p>
+                        {EncyclopediaData.isCollectible(detailedItem,ITEM_DATA,PLACE_DATA)?<p className="detailVector effectHeading clearFix encyclopediaDetailLink" onClick={this.context.openEncyclopedia.bind(null,detailedItem)}>百科</p>:null}
                         {(!IS_IPAD && ITEM_DATA[detailedItem].canUse)?<p className = "detailVector effectHeading clearFix" >右键使用</p> : null}
                         {maxDurable != undefined?<div className = "detailVector effectHeading clearFix" >耐久度：{maxDurable - durable}/{maxDurable}</div> : null}
                         <div className = "detailVector detailDesc">
@@ -1267,6 +1367,7 @@ var StudioComponent = React.createClass({
         checkFull           : React.PropTypes.func.isRequired,
         AudioEngine         : React.PropTypes.object.isRequired,
         eventSaveData       : React.PropTypes.object.isRequired,
+        knownRecipes        : React.PropTypes.object.isRequired,
     },
     getDefaultProps:function(){
         return {
@@ -1430,6 +1531,9 @@ var StudioComponent = React.createClass({
             o = {};
             o[cookResult] = amount;
             this.context.changeItem(o,'cooked');
+            var knownRecipes = clone(this.context.knownRecipes);
+            knownRecipes[cookResult] = true;
+            this.context.setStateFromChildren({knownRecipes:knownRecipes});
             this.setState({cookAmount:1});
         }
         this.context.useTime(callBack.bind(this),this.getCookTime());
@@ -5195,6 +5299,8 @@ var MainComponent = React.createClass({
             durableSaveData :clone(DURABLE_INIT),
             robberSaveData  :clone(ROBBER_INIT),
             eventSaveData   :clone(EVENT_INIT),
+            knownItems       :{},
+            knownRecipes    :{},
             isDueling       :false,
             menuDesc        :{},
             menuHint        :0,
@@ -5219,6 +5325,7 @@ var MainComponent = React.createClass({
             },
             generation      :0,
             hasWatch        :false,
+            encyclopediaItem:'',
         }
         if(MODE=='DEBUG'){
             state.skill = DEBUG_SKILL;
@@ -5248,6 +5355,8 @@ var MainComponent = React.createClass({
         dungeonSaveData      : React.PropTypes.object.isRequired,
         durableSaveData      : React.PropTypes.object.isRequired,
         eventSaveData        : React.PropTypes.object.isRequired,
+        knownItems            : React.PropTypes.object.isRequired,
+        knownRecipes         : React.PropTypes.object.isRequired,
         getBuildingLevel     : React.PropTypes.func.isRequired,
         getMaxDurable        : React.PropTypes.func.isRequired,
         getMaxTimeOfRequire  : React.PropTypes.func.isRequired,
@@ -5298,6 +5407,7 @@ var MainComponent = React.createClass({
         campSaveData         : React.PropTypes.object.isRequired,
         robberSaveData       : React.PropTypes.object.isRequired,
         handleItemClick      : React.PropTypes.func.isRequired,
+        openEncyclopedia     : React.PropTypes.func.isRequired,
         unequip             : React.PropTypes.func.isRequired,
         getEnveronmentTemperature: React.PropTypes.func.isRequired,
         currentBox           : React.PropTypes.string.isRequired,
@@ -5306,6 +5416,7 @@ var MainComponent = React.createClass({
         reBorn               : React.PropTypes.func.isRequired,
         generation           : React.PropTypes.number.isRequired,
         hasWatch             : React.PropTypes.bool.isRequired,
+        encyclopediaItem     : React.PropTypes.string.isRequired,
     },
     getChildContext: function() {
         return {
@@ -5335,6 +5446,8 @@ var MainComponent = React.createClass({
             dungeonSaveData     : this.state.dungeonSaveData,
             durableSaveData     : this.state.durableSaveData,
             eventSaveData       : this.state.eventSaveData,
+            knownItems          : this.state.knownItems,
+            knownRecipes        : this.state.knownRecipes,
             getBuildingLevel    : this.getBuildingLevel,
             getMaxDurable       : this.getMaxDurable,
             getMaxTimeOfRequire : this.getMaxTimeOfRequire,
@@ -5384,9 +5497,11 @@ var MainComponent = React.createClass({
             callWindow          : this.callWindow,
             campSaveData        : this.state.campSaveData,
             handleItemClick     : this.handleItemClick,
+            openEncyclopedia    : this.openEncyclopedia,
             getEnveronmentTemperature:this.getEnveronmentTemperature,
             robberSaveData      : this.state.robberSaveData,
             getMaxState         : this.getMaxState,
+            encyclopediaItem    : this.state.encyclopediaItem,
         };
     },
     reBorn:function(skill){
@@ -5820,9 +5935,13 @@ var MainComponent = React.createClass({
 
         if(this.state.settings.sort)this.sort('bag');
     },
+    openEncyclopedia:function(item){
+        this.setState({encyclopediaItem:item,showMenu:'menu'});
+    },
     changeItem:function(items,box,isNegative){
         var boxSaveData = this.state.boxSaveData;
         var tar = boxSaveData[box].things;
+        var knownItems = clone(this.state.knownItems);
         for (var attr in items) {
             if(boxSaveData[box].things[attr]){
                 tar[attr] += isNegative?-items[attr]:items[attr];
@@ -5830,8 +5949,9 @@ var MainComponent = React.createClass({
                 tar[attr] = items[attr];
             }
             if(tar[attr] <= 0 || isNaN(tar[attr]))delete tar[attr];
+            if(!isNegative && EncyclopediaData.isCollectible(attr,ITEM_DATA,PLACE_DATA))knownItems[attr] = true;
         };
-        this.setState({boxSaveData:boxSaveData});
+        this.setState({boxSaveData:boxSaveData,knownItems:knownItems});
     },
     useItem:function(items,box){
         var box = box || 'bag';
@@ -6463,6 +6583,17 @@ var MainComponent = React.createClass({
             this.init();
         }
     },
+    componentDidMount:function(){
+        this.encyclopediaShortcutHandler = function(event){
+            EncyclopediaShortcut.handleKeyDown(event,this.openEncyclopedia,function(item){
+                return EncyclopediaData.isCollectible(item,ITEM_DATA,PLACE_DATA);
+            });
+        }.bind(this);
+        $(document).on('keydown.encyclopediaShortcut',this.encyclopediaShortcutHandler);
+    },
+    componentWillUnmount:function(){
+        $(document).off('keydown.encyclopediaShortcut',this.encyclopediaShortcutHandler);
+    },
     init:function(){
         var initState = this.getInitialState();
         this.setState(initState);
@@ -6489,6 +6620,8 @@ var MainComponent = React.createClass({
             data.maouLevel = 0;
         }
         if(data.hasWatch === undefined)data.hasWatch = false;
+        if(!data.knownItems)data.knownItems = {};
+        if(!data.knownRecipes)data.knownRecipes = {};
         if(!data.currentEquip)data.currentEquip = {body:null,hand:null,foot:null,head:null,neck:null};
         if(data.currentEquip.neck === undefined)data.currentEquip.neck = null;
         if(!data.robberSaveData){
@@ -6549,6 +6682,15 @@ var MainComponent = React.createClass({
             if(EVENT_INIT[attr] != undefined && (data.eventSaveData[attr] == undefined)){
                 data.eventSaveData[attr] = clone(EVENT_INIT[attr]);
             }
+        }
+        for(var box in data.boxSaveData){
+            for(var item in data.boxSaveData[box].things){
+                if(EncyclopediaData.isCollectible(item,ITEM_DATA,PLACE_DATA))data.knownItems[item] = true;
+            }
+        }
+        for(var equipType in data.currentEquip){
+            var equip = data.currentEquip[equipType];
+            if(equip && EncyclopediaData.isCollectible(equip,ITEM_DATA,PLACE_DATA))data.knownItems[equip] = true;
         }
         this.setState(data);
         this.setState({showMenu:''});
