@@ -3,9 +3,15 @@ var MessageQueue = {
     create:function(){
         return {
             add:function(message){
-                var entry = {key:'msg_' + MessageQueue.nextKey++, message:message};
+                var entry = {key:'msg_' + MessageQueue.nextKey++, message:message, leaving:false};
                 this.items.push(entry);
                 return entry;
+            },
+            markLeaving:function(key){
+                this.items = this.items.map(function(entry){
+                    if(entry.key != key)return entry;
+                    return {key:entry.key,message:entry.message,leaving:true};
+                });
             },
             remove:function(key){
                 this.items = this.items.filter(function(entry){return entry.key != key;});

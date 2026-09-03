@@ -60,10 +60,6 @@ var SHIFT_PRESSED = false;
      })
  });
 
-//引入React动画库
-var ReactCSSTransitionGroup = React.addons.CSSTransitionGroup;
-
-
 function IsPC(){
    var userAgentInfo = navigator.userAgent;
    var Agents = new Array("Android", "iPhone", "SymbianOS", "Windows Phone", "iPad", "iPod");
@@ -417,6 +413,39 @@ var BtnBack = React.createClass({
             }
         }
         return <BtnComponent disabled = {this.props.disabled} handleClick = {callBack.bind(this)} desc = '返回'/>
+    }
+});
+var RepairWindowComponent = React.createClass({
+    contextTypes:{
+        boxSaveData:React.PropTypes.object.isRequired,
+        durableSaveData:React.PropTypes.object.isRequired,
+        getMaxDurable:React.PropTypes.func.isRequired,
+        setStateFromChildren:React.PropTypes.func.isRequired,
+        useItem:React.PropTypes.func.isRequired,
+        callWindow:React.PropTypes.func.isRequired,
+        AudioEngine:React.PropTypes.object.isRequired,
+    },
+    repair:function(item){
+        var durableSaveData = clone(this.context.durableSaveData);
+        if(!Repair.repair(item,this.context.boxSaveData.bag.things,ITEM_DATA,durableSaveData))return;
+        this.context.useItem({repairKit:1},'bag');
+        this.context.setStateFromChildren({durableSaveData:durableSaveData});
+        this.context.AudioEngine.playEffect('build');
+        this.context.callWindow(null);
+    },
+    render:function(){
+        var bag = this.context.boxSaveData.bag.things;
+        var items = Repair.getRepairableItems(bag,ITEM_DATA,this.context.durableSaveData);
+        var rows = items.map(function(item){
+            var max = this.context.getMaxDurable(item);
+            var current = max - this.context.durableSaveData[item];
+            return <tr key={item}><td>{ITEM_DATA[item].name}</td><td>{current}/{max}</td><td><BtnComponent handleClick={this.repair.bind(this,item)} desc="修理"/></td></tr>;
+        }.bind(this));
+        return <div className="repairWindow">
+                    <h4>选择要修理的装备</h4>
+                    {rows.length ? <table className="table table-condensed table-hover"><thead><tr><td>装备</td><td>耐久度</td><td></td></tr></thead><tbody>{rows}</tbody></table> : <p>背包中没有需要修理的装备。</p>}
+                    <BtnBack/>
+               </div>;
     }
 });
 var BtnHome = React.createClass({
@@ -2772,16 +2801,12 @@ var MsgBox = React.createClass({
     },
     render: function() {
         var msgList = this.context.msgList;
-        var list = msgList.map(function(entry){
-            return React.cloneElement(entry.message,{key:entry.key});
+        var list = msgList.slice().reverse().map(function(entry){
+            return <div key={entry.key} className={'msgItem' + (entry.leaving ? ' msgItemLeaving' : '')}>{entry.message}</div>;
         });
-        return (
-        <div className='msgShow'>
-            <ReactCSSTransitionGroup transitionEnterTimeout = {200} transitionLeaveTimeout = {1000} transitionName = "msg" className = "msg">
-                {list}
-            </ReactCSSTransitionGroup>
-        </div>
-        );
+        return <div className='msgShow'>
+                    <div className='msg'>{list}</div>
+                </div>;
     }
 });
 //all the building at home
@@ -5567,6 +5592,15 @@ var MainComponent = React.createClass({
         this.setState({boxSaveData:boxSaveData});
     },
     handleItemClick:function(item,box){
+        if(item == 'repairKit'){
+            if(box != 'bag')return;
+            if(getLength(this.state.mstState) != 0){
+                this.showMsg(<p>战斗中不能修理装备！</p>);
+                return;
+            }
+            this.callWindow(<RepairWindowComponent/>);
+            return;
+        }
         //食物、药剂效果
         if(ITEM_DATA[item].effect){
             this.playerStateChange(ITEM_DATA[item].effect);
@@ -5716,12 +5750,19 @@ var MainComponent = React.createClass({
         queue.items = this.state.msgList.slice();
         var entry = queue.add(msg);
         this.setState({msgList:queue.items});
+        var leaveTime = Math.max(0,MSG_TIME - 1000);
+        setTimeout((function(){
+            var current = MessageQueue.create();
+            current.items = this.state.msgList.slice();
+            current.markLeaving(entry.key);
+            this.setState({msgList:current.items});
+        }).bind(this),leaveTime);
         setTimeout((function(){
             var current = MessageQueue.create();
             current.items = this.state.msgList.slice();
             current.remove(entry.key);
             this.setState({msgList:current.items});
-        }).bind(this),MSG_TIME)
+        }).bind(this),MSG_TIME);
     },
     getValue:function(give){
         if(ITEM_DATA[give].value)return ITEM_DATA[give].value;

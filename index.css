@@ -1212,6 +1212,24 @@ td:nth-child(1){
     height:20px;
     line-height:20px;
 }
+.msgItem{
+    height:20px;
+    line-height:20px;
+    opacity:1;
+    overflow:hidden;
+    animation:msgItemEnter .2s ease-out;
+}
+.msgItem > *{
+    margin:0;
+}
+.msgItemLeaving{
+    opacity:0;
+    transition:opacity 1s ease-out;
+}
+@keyframes msgItemEnter{
+    from{height:0;line-height:0;opacity:0;}
+    to{height:20px;line-height:20px;opacity:1;}
+}
 .msg-enter{
     height:0px;
     line-height:0px;

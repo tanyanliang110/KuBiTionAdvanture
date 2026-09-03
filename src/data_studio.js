@@ -1,4 +1,8 @@
 var MAKE_DATA = {
+    repairKit:{
+        timeNeed:2,
+        require:{iron:10}
+    },
     knife:{
         timeNeed:3,
         require:{'iron':3}

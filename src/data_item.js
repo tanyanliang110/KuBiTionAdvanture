@@ -47,6 +47,14 @@ var ITEM_DATA = {
         sound:'scroll',
         canUse:true,
     },
+    repairKit:{
+        name:'修理工具',
+        type:'tool',
+        desc:'可以将背包中一件尚未损坏的装备恢复至满耐久。',
+        sound:'build',
+        canUse:true,
+        value:50,
+    },
     dungeonRope:{
         name:'穿洞绳',
         type:'tool',
